@@ -2,6 +2,8 @@
 build/
 sdkconfig
 sdkconfig.old
+.clangd
+ROADMAP.md
 
 # VS Code (config local)
 .vscode/
