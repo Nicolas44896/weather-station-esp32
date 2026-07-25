@@ -12,5 +12,8 @@ ROADMAP.md
 __pycache__/
 *.pyc
 
+# Python virtualenv (backend)
+.venv/
+
 # Logs de ESP-IDF
 *.log

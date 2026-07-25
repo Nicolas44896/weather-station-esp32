@@ -18,8 +18,8 @@ hacia un backend propio.
 Roadmap:
 - ✅ **Fase 1** — Fundamentos de FreeRTOS (tasks concurrentes, GPIO, scheduler)
 - ✅ **Fase 2** — Comunicación entre tasks: Queues (`xQueueSend`/`xQueueReceive`) y sincronización con Mutex sobre recurso compartido
-- ⏳ **Fase 3** — Sensor real BME280 por I2C
-- ⏳ **Fase 4** — Conectividad WiFi + envío HTTP a backend propio (Go)
+- ⏳ **Fase 3** — Conectividad WiFi + envío HTTP a backend propio en Python/FastAPI (con datos simulados)
+- ⏳ **Fase 4** — Sensor real BME280 por I2C
 - ⏳ **Fase 5** — Robustez (watchdog, manejo de fallos, reconexión)
 
 ## Setup del entorno
