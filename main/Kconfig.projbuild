@@ -1,0 +1,19 @@
+# Kconfig.projbuild
+# Define opciones de configuracion propias del proyecto, que aparecen en
+# `idf.py menuconfig`. 
+
+menu "Weather Station - WiFi"
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "mi-red"
+        help
+            Nombre (SSID) de la red WiFi a la que se conecta la ESP32 en modo STA.
+
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default "mi-password"
+        help
+            Contrasena de la red WiFi. Para redes abiertas, dejar vacio.
+
+endmenu
