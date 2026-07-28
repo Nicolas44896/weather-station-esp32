@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estación meteorológica</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --hover-wash:     rgba(11,11,11,0.04);
+    --s-temp:         #2a78d6;
+    --s-pres:         #1baf7a;
+    --good:           #0ca30c;
+    --critical:       #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --grid:           #2c2c2a;
+      --axis:           #383835;
+      --border:         rgba(255,255,255,0.10);
+      --hover-wash:     rgba(255,255,255,0.06);
+      --s-temp:         #3987e5;
+      --s-pres:         #199e70;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --border:         rgba(255,255,255,0.10);
+    --hover-wash:     rgba(255,255,255,0.06);
+    --s-temp:         #3987e5;
+    --s-pres:         #199e70;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 20px 64px;
+    background: var(--page);
+    color: var(--text-primary);
+    font: 400 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header { margin-bottom: 22px; }
+  h1 { margin: 0 0 6px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.live { background: var(--good); }
+  .dot.down { background: var(--critical); }
+  .sep { color: var(--axis); }
+
+  /* Fila de filtros: una sola, arriba de todo lo que alcanza. */
+  .filters { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+  .filters .lbl { color: var(--text-secondary); font-size: 12px; margin-right: 2px; }
+  .range { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+  .range button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 12.5px; color: var(--text-secondary);
+    padding: 6px 11px; border-right: 1px solid var(--border);
+  }
+  .range button:last-child { border-right: 0; }
+  .range button:hover { background: var(--hover-wash); }
+  .range button[aria-pressed="true"] { color: var(--text-primary); font-weight: 600; background: var(--hover-wash); }
+  .range button:focus-visible { outline: 2px solid var(--s-temp); outline-offset: -2px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 15px 11px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .tile .k { display: flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 12.5px; }
+  .swatch { width: 10px; height: 2px; border-radius: 1px; flex: none; }
+  .tile .v { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+  .tile .v .u { font-size: 14px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
+  .tile .foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .tile .d { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+  .spark { display: block; flex: none; }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px 8px; margin-bottom: 12px; position: relative;
+  }
+  .card h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .card .cap { margin: 1px 0 4px; font-size: 12px; color: var(--muted); }
+  .plot { width: 100%; display: block; touch-action: none; }
+  .plot:focus { outline: none; }
+  .plot:focus-visible { outline: 2px solid var(--s-temp); outline-offset: 2px; border-radius: 4px; }
+
+  .tip {
+    position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 7px;
+    padding: 6px 9px; box-shadow: 0 3px 12px rgba(0,0,0,0.13); z-index: 3; white-space: nowrap;
+  }
+  .tip.on { opacity: 1; }
+  .tip .tv { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .tip .tt { font-size: 11.5px; color: var(--text-secondary); margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+  .stale { opacity: 0.45; transition: opacity .15s; }
+
+  details.tv { margin-top: 18px; }
+  details.tv summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 4px 0; }
+  details.tv summary:focus-visible { outline: 2px solid var(--s-temp); outline-offset: 2px; border-radius: 3px; }
+  .tblwrap { overflow-x: auto; margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  .tblscroll { max-height: 320px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: right; padding: 7px 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th { color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface-1); }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr + tr td { border-top: 1px solid var(--grid); }
+
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: 1fr; }
+    .tile .v { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Estación meteorológica</h1>
+    <div class="sub">
+      <span class="dot" id="dot"></span>
+      <span id="status">Conectando…</span>
+      <span class="sep">·</span>
+      <span id="meta">—</span>
+    </div>
+  </header>
+
+  <div class="filters">
+    <span class="lbl">Ventana</span>
+    <div class="range" id="range" role="group" aria-label="Ventana de tiempo">
+      <button type="button" data-min="1"  aria-pressed="false">1 min</button>
+      <button type="button" data-min="5"  aria-pressed="true">5 min</button>
+      <button type="button" data-min="15" aria-pressed="false">15 min</button>
+      <button type="button" data-min="0"  aria-pressed="false">Todo</button>
+    </div>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+  <section id="charts"></section>
+
+  <details class="tv">
+    <summary>Ver tabla de datos</summary>
+    <div class="tblwrap"><div class="tblscroll">
+      <table>
+        <thead><tr><th>Hora</th><th>Temperatura (°C)</th><th>Presión (hPa)</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div></div>
+  </details>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---- Configuración de las series -----------------------------------------
+  const SERIES = [
+    { key: "temperatura", label: "Temperatura", unit: "°C",  dec: 1, color: "--s-temp" },
+    { key: "presion",     label: "Presión",     unit: "hPa", dec: 1, color: "--s-pres" },
+  ];
+
+  const POLL_MS   = 2000;   // el ESP32 postea cada 2 s
+  const FETCH_MAX = 500;    // = maxlen del deque del backend
+  const SVG_NS    = "http://www.w3.org/2000/svg";
+
+  // l = 54: hay que entrar etiquetas tipo "1013.0" (presión) sin recortarlas
+  const PAD = { l: 54, r: 14, t: 10, b: 24 };
+  const PLOT_H = 152;                       // alto del área de datos
+  const SVG_H  = PLOT_H + PAD.t + PAD.b;    // el alto incluye la banda del eje X
+
+  let rows = [];        // todas las lecturas traídas del backend
+  let view = [];        // las que caen dentro de la ventana elegida
+  let windowMin = 5;    // 0 = todo
+  let cursor = null;    // índice bajo el puntero / teclado
+  const charts = [];    // una entrada por serie
+
+  // ---- Utilidades ----------------------------------------------------------
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const el = (tag, attrs) => {
+    const n = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+  const numFmt = (d) => new Intl.NumberFormat("es-AR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const hhmmss = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const hhmm   = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+  function niceTicks(min, max, count) {
+    if (!(max > min)) return [min];
+    const step0 = (max - min) / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const n = step0 / mag;
+    const step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+    const out = [];
+    for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) {
+      out.push(Math.round(v / step) * step);
+    }
+    return out;
+  }
+
+  // ---- Construcción del DOM ------------------------------------------------
+  const kpisEl = document.getElementById("kpis");
+  const chartsEl = document.getElementById("charts");
+
+  SERIES.forEach((s) => {
+    const stroke = css(s.color);
+
+    // Tarjeta de valor actual
+    const tile = document.createElement("div");
+    tile.className = "tile";
+    const k = document.createElement("div");
+    k.className = "k";
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = stroke;
+    const kt = document.createElement("span");
+    kt.textContent = s.label;
+    k.append(sw, kt);
+
+    const v = document.createElement("div");
+    v.className = "v";
+    const vNum = document.createElement("span");
+    vNum.textContent = "—";
+    const vUnit = document.createElement("span");
+    vUnit.className = "u";
+    vUnit.textContent = s.unit;
+    v.append(vNum, vUnit);
+
+    const foot = document.createElement("div");
+    foot.className = "foot";
+    const d = document.createElement("span");
+    d.className = "d";
+    d.textContent = "—";
+    const spark = el("svg", { class: "spark", width: 84, height: 22, "aria-hidden": "true" });
+    foot.append(d, spark);
+    tile.append(k, v, foot);
+    kpisEl.append(tile);
+
+    // Tarjeta del gráfico
+    const card = document.createElement("div");
+    card.className = "card";
+    const h2 = document.createElement("h2");
+    h2.textContent = s.label;
+    const cap = document.createElement("p");
+    cap.className = "cap";
+    cap.textContent = s.unit + " · en el tiempo";
+    const svg = el("svg", { class: "plot", height: SVG_H, tabindex: "0",
+                            role: "img", "aria-label": s.label + " en el tiempo" });
+    const tip = document.createElement("div");
+    tip.className = "tip";
+    const tv = document.createElement("div");
+    tv.className = "tv";
+    const tKey = document.createElement("span");
+    tKey.className = "swatch";
+    tKey.style.background = stroke;
+    const tVal = document.createElement("span");
+    tv.append(tKey, tVal);
+    const tTime = document.createElement("div");
+    tTime.className = "tt";
+    tip.append(tv, tTime);
+    card.append(h2, cap, svg, tip);
+    chartsEl.append(card);
+
+    charts.push({ ...s, stroke, svg, tip, tVal, tTime, vNum, d, spark, card });
+  });
+
+  // ---- Dibujo de un gráfico ------------------------------------------------
+  function draw(c) {
+    const svg = c.svg;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    c.geom = null;
+    c.cross = null;
+
+    const W = Math.round(svg.getBoundingClientRect().width) || 600;
+    svg.setAttribute("viewBox", `0 0 ${W} ${SVG_H}`);
+    const plotW = W - PAD.l - PAD.r;
+    if (plotW <= 10) return;
+
+    if (view.length === 0) {
+      const t = el("text", { x: W / 2, y: SVG_H / 2, "text-anchor": "middle",
+                             fill: css("--muted"), "font-size": "12.5" });
+      t.textContent = "Esperando lecturas…";
+      svg.append(t);
+      return;
+    }
+
+    const vals = view.map((r) => r[c.key]);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = hi - lo;
+    const padV = span > 0 ? span * 0.15 : Math.max(Math.abs(hi) * 0.002, 0.5);
+    lo -= padV; hi += padV;
+
+    const t0 = view[0].t, t1 = view[view.length - 1].t;
+    const xOf = (t) => (t1 > t0 ? PAD.l + ((t - t0) / (t1 - t0)) * plotW : PAD.l + plotW);
+    const yOf = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * PLOT_H;
+    c.geom = { xOf, yOf, plotW, W };
+
+    // Grilla horizontal + etiquetas del eje Y (hairline sólido, recesivo)
+    const fmt = numFmt(c.dec);
+    for (const tick of niceTicks(lo, hi, 4)) {
+      const y = yOf(tick);
+      if (y < PAD.t - 1 || y > PAD.t + PLOT_H + 1) continue;
+      svg.append(el("line", { x1: PAD.l, y1: y, x2: PAD.l + plotW, y2: y,
+                              stroke: css("--grid"), "stroke-width": 1 }));
+      const lab = el("text", { x: PAD.l - 8, y: y + 3.5, "text-anchor": "end",
+                               fill: css("--muted"), "font-size": "10.5",
+                               "font-variant-numeric": "tabular-nums" });
+      lab.textContent = fmt.format(tick);
+      svg.append(lab);
+    }
+
+    // Línea base del eje X
+    svg.append(el("line", { x1: PAD.l, y1: PAD.t + PLOT_H, x2: PAD.l + plotW, y2: PAD.t + PLOT_H,
+                            stroke: css("--axis"), "stroke-width": 1 }));
+
+    // Etiquetas del eje X
+    const nx = plotW < 320 ? 2 : 4;
+    const seen = new Set();
+    for (let i = 0; i < nx; i++) {
+      const idx = Math.round((i / (nx - 1)) * (view.length - 1));
+      const r = view[idx];
+      const txt = hhmm.format(r.date);
+      if (seen.has(txt) && i !== nx - 1) continue;
+      seen.add(txt);
+      const x = Math.min(Math.max(xOf(r.t), PAD.l + 14), PAD.l + plotW - 14);
+      const lab = el("text", { x, y: SVG_H - 7, "text-anchor": "middle",
+                               fill: css("--muted"), "font-size": "10.5",
+                               "font-variant-numeric": "tabular-nums" });
+      lab.textContent = txt;
+      svg.append(lab);
+    }
+
+    // Área (lavado ~10%) + línea de 2px
+    const pts = view.map((r) => [xOf(r.t), yOf(r[c.key])]);
+    if (pts.length > 1) {
+      const base = PAD.t + PLOT_H;
+      const dLine = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+      svg.append(el("path", {
+        d: `${dLine} L${pts[pts.length - 1][0].toFixed(1)},${base} L${pts[0][0].toFixed(1)},${base} Z`,
+        fill: c.stroke, "fill-opacity": 0.1, stroke: "none" }));
+      svg.append(el("path", { d: dLine, fill: "none", stroke: c.stroke, "stroke-width": 2,
+                              "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    }
+
+    // Punto final, con anillo de 2px en color de superficie
+    const last = pts[pts.length - 1];
+    svg.append(el("circle", { cx: last[0], cy: last[1], r: 4, fill: c.stroke,
+                              stroke: css("--surface-1"), "stroke-width": 2 }));
+
+    // Etiqueta directa del último valor
+    const anchorRight = last[0] > PAD.l + plotW - 46;
+    const lbl = el("text", {
+      x: last[0] + (anchorRight ? -9 : 9),
+      y: Math.min(Math.max(last[1] + 4, PAD.t + 10), PAD.t + PLOT_H - 2),
+      "text-anchor": anchorRight ? "end" : "start",
+      fill: css("--text-primary"), "font-size": "11.5", "font-weight": "600" });
+    lbl.textContent = fmt.format(view[view.length - 1][c.key]);
+    svg.append(lbl);
+
+    // Capa de crosshair (oculta hasta que haya hover o foco)
+    const cross = el("g", { visibility: "hidden" });
+    const cl = el("line", { y1: PAD.t, y2: PAD.t + PLOT_H, stroke: css("--axis"), "stroke-width": 1 });
+    const cd = el("circle", { r: 4, fill: c.stroke, stroke: css("--surface-1"), "stroke-width": 2 });
+    cross.append(cl, cd);
+    svg.append(cross);
+    c.cross = { g: cross, line: cl, dot: cd };
+
+    // Zona de captura: todo el ancho del plot, no la línea de 2px
+    svg.append(el("rect", { x: PAD.l, y: PAD.t, width: plotW, height: PLOT_H, fill: "transparent" }));
+
+    applyCursor(c);
+  }
+
+  // ---- Crosshair y tooltip -------------------------------------------------
+  function nearestIndex(c, clientX) {
+    if (!c.geom || view.length === 0) return null;
+    const box = c.svg.getBoundingClientRect();
+    if (!box.width) return null;
+    const x = ((clientX - box.left) / box.width) * c.geom.W;
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < view.length; i++) {
+      const d = Math.abs(c.geom.xOf(view[i].t) - x);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  function applyCursor(c) {
+    if (!c.cross || !c.geom) return;
+    if (cursor === null || cursor >= view.length) {
+      c.cross.g.setAttribute("visibility", "hidden");
+      c.tip.classList.remove("on");
+      return;
+    }
+    const r = view[cursor];
+    const x = c.geom.xOf(r.t), y = c.geom.yOf(r[c.key]);
+    c.cross.line.setAttribute("x1", x);
+    c.cross.line.setAttribute("x2", x);
+    c.cross.dot.setAttribute("cx", x);
+    c.cross.dot.setAttribute("cy", y);
+    c.cross.g.setAttribute("visibility", "visible");
+
+    // El valor lidera; la unidad y la hora acompañan
+    c.tVal.textContent = numFmt(c.dec).format(r[c.key]) + " " + c.unit;
+    c.tTime.textContent = hhmmss.format(r.date);
+    c.tip.classList.add("on");
+
+    const box = c.svg.getBoundingClientRect();
+    const cardBox = c.card.getBoundingClientRect();
+    const scale = box.width / c.geom.W;
+    const px = (box.left - cardBox.left) + x * scale;
+    const py = (box.top - cardBox.top) + y * scale;
+    const tw = c.tip.offsetWidth, th = c.tip.offsetHeight;
+    let left = px + 14;
+    if (left + tw > cardBox.width - 4) left = px - tw - 14;
+    c.tip.style.left = Math.max(4, left) + "px";
+    c.tip.style.top = Math.max(4, py - th - 10) + "px";
+  }
+
+  // Un solo cursor para ambos gráficos: se lee la misma X en los dos a la vez.
+  function setCursor(i) {
+    cursor = i;
+    charts.forEach(applyCursor);
+  }
+
+  charts.forEach((c) => {
+    c.svg.addEventListener("pointermove", (e) => setCursor(nearestIndex(c, e.clientX)));
+    c.svg.addEventListener("pointerleave", () => setCursor(null));
+    c.svg.addEventListener("blur", () => setCursor(null));
+    c.svg.addEventListener("focus", () => { if (view.length) setCursor(view.length - 1); });
+    c.svg.addEventListener("keydown", (e) => {
+      if (!view.length) return;
+      let i = cursor === null ? view.length - 1 : cursor;
+      if (e.key === "ArrowLeft")       i = Math.max(0, i - 1);
+      else if (e.key === "ArrowRight") i = Math.min(view.length - 1, i + 1);
+      else if (e.key === "Home")       i = 0;
+      else if (e.key === "End")        i = view.length - 1;
+      else if (e.key === "Escape")     { setCursor(null); return; }
+      else return;
+      e.preventDefault();
+      setCursor(i);
+    });
+  });
+
+  // ---- Tarjetas de valor actual --------------------------------------------
+  function drawSpark(c) {
+    const s = c.spark;
+    while (s.firstChild) s.removeChild(s.firstChild);
+    const pts = view.slice(-40).map((r) => r[c.key]);
+    if (pts.length < 2) return;
+    const W = 84, H = 22, m = 3;
+    const lo = Math.min(...pts), hi = Math.max(...pts);
+    const y = (v) => (hi > lo ? m + (1 - (v - lo) / (hi - lo)) * (H - 2 * m) : H / 2);
+    const x = (i) => (i / (pts.length - 1)) * (W - 4) + 2;
+    const d = pts.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+    s.append(el("path", { d, fill: "none", stroke: c.stroke, "stroke-width": 1.5, "stroke-opacity": 0.45,
+                          "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    s.append(el("circle", { cx: x(pts.length - 1), cy: y(pts[pts.length - 1]), r: 2.5, fill: c.stroke }));
+  }
+
+  function updateTiles() {
+    charts.forEach((c) => {
+      if (!view.length) {
+        c.vNum.textContent = "—";
+        c.d.textContent = "—";
+        while (c.spark.firstChild) c.spark.removeChild(c.spark.firstChild);
+        return;
+      }
+      const fmt = numFmt(c.dec);
+      const now = view[view.length - 1][c.key];
+      c.vNum.textContent = fmt.format(now);
+
+      const delta = now - view[0][c.key];
+      // Delta deliberadamente neutro: en clima "subir" no es bueno ni malo,
+      // así que no lleva color de estado — solo flecha y texto.
+      const arrow = Math.abs(delta) < Math.pow(10, -c.dec) / 2 ? "→" : delta > 0 ? "↑" : "↓";
+      c.d.textContent = `${arrow} ${fmt.format(Math.abs(delta))} ${c.unit}`;
+      drawSpark(c);
+    });
+  }
+
+  // ---- Tabla (mismo dato, sin depender del color ni del hover) --------------
+  const tbody = document.getElementById("tbody");
+  function updateTable() {
+    tbody.textContent = "";
+    const frag = document.createDocumentFragment();
+    const f1 = numFmt(1);
+    for (const r of view.slice(-200).reverse()) {
+      const tr = document.createElement("tr");
+      for (const text of [hhmmss.format(r.date), f1.format(r.temperatura),
+                          f1.format(r.presion)]) {
+        const td = document.createElement("td");
+        td.textContent = text;   // textContent, nunca innerHTML con datos de la API
+        tr.append(td);
+      }
+      frag.append(tr);
+    }
+    tbody.append(frag);
+  }
+
+  // ---- Cabecera de estado --------------------------------------------------
+  const dotEl = document.getElementById("dot");
+  const statusEl = document.getElementById("status");
+  const metaEl = document.getElementById("meta");
+
+  function updateHeader(ok) {
+    if (!ok) {
+      dotEl.className = "dot down";
+      statusEl.textContent = "Sin conexión con el servidor";
+      return;
+    }
+    if (!rows.length) {
+      dotEl.className = "dot";
+      statusEl.textContent = "Servidor arriba · sin lecturas todavía";
+      metaEl.textContent = "—";
+      return;
+    }
+    const last = rows[rows.length - 1];
+    const age = (Date.now() - last.t) / 1000;
+    const fresh = age < (POLL_MS / 1000) * 4;
+    dotEl.className = "dot " + (fresh ? "live" : "");
+    statusEl.textContent = fresh ? "Recibiendo datos" : `Última lectura hace ${Math.round(age)} s`;
+    metaEl.textContent = `${view.length} muestras en vista · ${rows.length} en buffer · ${hhmmss.format(last.date)}`;
+  }
+
+  // ---- Ventana de tiempo (filtro único, alcanza a todo lo de abajo) ---------
+  function applyWindow() {
+    if (!windowMin) { view = rows; return; }
+    const cut = Date.now() - windowMin * 60000;
+    view = rows.filter((r) => r.t >= cut);
+    if (!view.length && rows.length) view = rows.slice(-1);
+  }
+
+  document.getElementById("range").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    windowMin = Number(b.dataset.min);
+    for (const other of e.currentTarget.querySelectorAll("button")) {
+      other.setAttribute("aria-pressed", String(other === b));
+    }
+    cursor = null;
+    render();
+  });
+
+  // ---- Render y polling ----------------------------------------------------
+  function render() {
+    applyWindow();
+    if (cursor !== null && cursor >= view.length) cursor = view.length ? view.length - 1 : null;
+    charts.forEach(draw);
+    updateTiles();
+    updateTable();
+    updateHeader(true);
+  }
+
+  const wrapEl = document.querySelector(".wrap");
+  let slowTimer = null;
+
+  async function poll() {
+    // Sin flash de esqueleto: solo atenuamos si el fetch tarda de verdad.
+    slowTimer = setTimeout(() => wrapEl.classList.add("stale"), 600);
+    try {
+      const res = await fetch(`/readings?limit=${FETCH_MAX}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      rows = data.map((r) => {
+        const date = new Date(r.timestamp);
+        return { ...r, date, t: date.getTime() };
+      });
+      render();
+    } catch (err) {
+      updateHeader(false);   // deja el render anterior en pantalla
+    } finally {
+      clearTimeout(slowTimer);
+      wrapEl.classList.remove("stale");
+    }
+  }
+
+  let resizeRaf = null;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => charts.forEach(draw));
+  });
+
+  poll();
+  setInterval(poll, POLL_MS);
+})();
+</script>
+</body>
+</html>

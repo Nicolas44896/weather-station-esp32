@@ -10,7 +10,7 @@ hacia un backend propio.
 
 ## Hardware
 - ESP32 NodeMCU 38 pines (WROOM-32S, CP2102)
-- Sensor BME280 (temperatura, humedad, presión) — I2C
+- Sensor BMP280 (temperatura, presión) — I2C
 
 ## Estado del proyecto
 🚧 En desarrollo — **Fase 3 completada** (pipeline WiFi + HTTP end-to-end con datos simulados).
@@ -19,7 +19,7 @@ Roadmap:
 - ✅ **Fase 1** — Fundamentos de FreeRTOS (tasks concurrentes, GPIO, scheduler)
 - ✅ **Fase 2** — Comunicación entre tasks: Queues (`xQueueSend`/`xQueueReceive`) y sincronización con Mutex sobre recurso compartido
 - ✅ **Fase 3** — Conectividad WiFi (modo STA, `esp_wifi` + event group) + envío HTTP POST (JSON) a backend propio en Python/FastAPI, con datos simulados tipados con la forma final del sensor
-- ⏳ **Fase 4** — Sensor real BME280 por I2C (drop-in: sólo cambia la fuente del dato, no el pipeline de red)
+- ⏳ **Fase 4** — Sensor real BMP280 por I2C (drop-in: sólo cambia la fuente del dato, no el pipeline de red)
 - ⏳ **Fase 5** — Robustez (watchdog, manejo de fallos, reconexión)
 
 ## Arquitectura (firmware)

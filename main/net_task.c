@@ -15,7 +15,7 @@ static const char *TAG = "net";
 //  Serializa una lectura a JSON en el buffer dado.
 static int reading_to_json(const sensor_reading_t *r, char *buf, size_t buf_len)
 {
-    int ret = snprintf(buf, buf_len, "{\"temperatura\":%.2f,\"humedad\":%.2f,\"presion\":%.2f}", r->temperatura, r->humedad, r->presion); // 
+    int ret = snprintf(buf, buf_len, "{\"temperatura\":%.2f,\"presion\":%.2f}", r->temperatura, r->presion); // 
     return ret; 
 }
 
@@ -54,7 +54,7 @@ static void net_receiving_task(void *pvParameter)
 
     while (1) {
         xQueueReceive(queue, &lecturas, portMAX_DELAY);
-        ESP_LOGI(TAG, "Recibido -> %.2f C, %.2f %%, %.2f hPa", lecturas.temperatura, lecturas.humedad, lecturas.presion);
+        ESP_LOGI(TAG, "Recibido -> %.2f C, %.2f hPa", lecturas.temperatura, lecturas.presion);
 
         int ret = reading_to_json(&lecturas, json, sizeof(json));
         if (ret > 0) {

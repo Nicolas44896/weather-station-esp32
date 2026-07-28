@@ -17,11 +17,10 @@ static void sensor_reading_task(void *pvParameter){
         sensor_reading_t lecturas;
 
         lecturas.temperatura = (15.0f + (esp_random() % 1500) / 100.0f);
-        lecturas.humedad = (30.0f + (esp_random() % 5000) / 100.0f);
         lecturas.presion = (980.0 + (esp_random() % 4000) / 100.0f);
 
         xQueueSend(queue, &lecturas, portMAX_DELAY);
-        ESP_LOGI(TAG, "Lectura enviada: %.2f C, %.2f %%, %.2f hPa", lecturas.temperatura, lecturas.humedad, lecturas.presion);
+        ESP_LOGI(TAG, "Lectura enviada: %.2f C, %.2f hPa", lecturas.temperatura, lecturas.presion);
         vTaskDelayUntil(&last_wake, periodo); 
     }
 }
